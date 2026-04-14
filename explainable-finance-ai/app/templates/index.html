@@ -1,0 +1,232 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="tab-content active" id="credit">
+    <h2>Credit Risk Assessment</h2>
+    <p style="color: #666; margin-bottom: 20px;">Enter personal and financial information to assess credit risk.</p>
+
+    <form onsubmit="predictCredit(event)">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="age">Age (years)</label>
+                <input type="number" id="age" name="age" value="30" required>
+            </div>
+            <div class="form-group">
+                <label for="job">Job Category</label>
+                <select id="job" name="job">
+                    <option value="0">0 - Unemployed</option>
+                    <option value="1">1 - Unskilled</option>
+                    <option value="2" selected>2 - Skilled</option>
+                    <option value="3">3 - Executive</option>
+                    <option value="4">4 - Other</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="loan_amount">Credit Amount ($)</label>
+                <input type="number" id="loan_amount" name="loan_amount" value="10000" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="duration">Loan Duration (months)</label>
+                <input type="number" id="duration" name="duration" value="12" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sex">Gender</label>
+                <select id="sex" name="sex">
+                    <option value="male" selected>Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="housing">Housing Status</label>
+                <select id="housing" name="housing">
+                    <option value="own" selected>Own</option>
+                    <option value="rent">Rent</option>
+                    <option value="free">Free</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="saving_accounts">Saving Accounts</label>
+                <select id="saving_accounts" name="saving_accounts">
+                    <option value="Unknown">Unknown</option>
+                    <option value="little" selected>Little</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="quite rich">Quite Rich</option>
+                    <option value="rich">Rich</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="checking_account">Checking Account</label>
+                <select id="checking_account" name="checking_account">
+                    <option value="Unknown">Unknown</option>
+                    <option value="little">Little</option>
+                    <option value="moderate" selected>Moderate</option>
+                    <option value="rich">Rich</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="purpose">Loan Purpose</label>
+                <select id="purpose" name="purpose">
+                    <option value="business">Business</option>
+                    <option value="car">Car</option>
+                    <option value="domestic appliances">Domestic Appliances</option>
+                    <option value="education" selected>Education</option>
+                    <option value="furniture/equipment">Furniture/Equipment</option>
+                    <option value="radio/TV">Radio/TV</option>
+                    <option value="repairs">Repairs</option>
+                    <option value="vacation/others">Vacation/Others</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="predict-btn">Check Credit Risk</button>
+    </form>
+
+    <div id="credit_loading" class="loading">
+        <div class="spinner"></div>
+        <p>Assessing credit risk...</p>
+    </div>
+
+    <div id="credit_result"></div>
+
+    <div class="evaluation-section" id="evaluation_section" style="display: none; margin-top: 35px;">
+        <h2>Model Evaluation Scores & Graphs</h2>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h4>Random Forest Scores</h4>
+                <p><strong>Accuracy:</strong> {{ evaluation_metrics.random_forest.accuracy or 'N/A' }}</p>
+                <p><strong>Precision:</strong> {{ evaluation_metrics.random_forest.precision or 'N/A' }}</p>
+                <p><strong>Recall:</strong> {{ evaluation_metrics.random_forest.recall or 'N/A' }}</p>
+                <p><strong>F1 Score:</strong> {{ evaluation_metrics.random_forest.f1_score or 'N/A' }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Gradient Boosting Scores</h4>
+                <p><strong>Accuracy:</strong> {{ evaluation_metrics.gradient_boosting.accuracy or 'N/A' }}</p>
+                <p><strong>Precision:</strong> {{ evaluation_metrics.gradient_boosting.precision or 'N/A' }}</p>
+                <p><strong>Recall:</strong> {{ evaluation_metrics.gradient_boosting.recall or 'N/A' }}</p>
+                <p><strong>F1 Score:</strong> {{ evaluation_metrics.gradient_boosting.f1_score or 'N/A' }}</p>
+            </div>
+        </div>
+
+        <div class="graph-row" style="margin-top: 25px;">
+            {% for filename in graph_files %}
+            <div class="graph-card" style="animation-delay: {{ 0.2 + loop.index0 * 0.2 }}s;">
+                <h4>{{ filename.replace('_', ' ').replace('.png', '')|title }}</h4>
+                <img src="{{ url_for('assets', filename=filename) }}" alt="{{ filename }}" class="graph-image" onclick="toggleFullscreen(this)" style="cursor: pointer; user-select: none; -webkit-user-select: none;">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function toggleFullscreen(element) {
+    if (!document.fullscreenElement) {
+        element.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && document.fullscreenElement) {
+        document.exitFullscreen();
+    }
+});
+function predictCredit(event) {
+    event.preventDefault();
+    document.getElementById('credit_loading').style.display = 'block';
+    document.getElementById('credit_result').innerHTML = '';
+    document.getElementById('evaluation_section').style.display = 'none';
+
+    const formData = new FormData(event.target);
+    const data = {
+        age: parseFloat(formData.get('age')),
+        job: parseInt(formData.get('job')),
+        loan_amount: parseFloat(formData.get('loan_amount')),
+        duration: parseFloat(formData.get('duration')),
+        sex: formData.get('sex'),
+        housing: formData.get('housing'),
+        saving_accounts: formData.get('saving_accounts'),
+        checking_account: formData.get('checking_account'),
+        purpose: formData.get('purpose')
+    };
+
+    fetch('/api/predict/credit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        document.getElementById('credit_loading').style.display = 'none';
+        if (!result.success) {
+            document.getElementById('credit_result').innerHTML = `<div class="result error"><h3>Error</h3><p>${result.error}</p></div>`;
+            return;
+        }
+
+        const html = `
+            <div class="models-comparison">
+                <h3>📊 Model Predictions Comparison</h3>
+                <div class="model-card ${result.random_forest.label === 'High Risk' ? 'high-risk' : 'low-risk'}">
+                    <div class="model-header">Random Forest</div>
+                    <div class="result-metric"><label>Risk Level:</label><div class="value">${result.random_forest.label}</div></div>
+                    <div class="result-metric"><label>Probability:</label><div class="value">${result.random_forest.percentage}</div></div>
+                    <div class="result-metric"><label>Confidence:</label><div class="value">${(result.random_forest.probability*100).toFixed(2)}%</div></div>
+                </div>
+                <div class="model-card ${result.gradient_boosting.label === 'High Risk' ? 'high-risk' : 'low-risk'}">
+                    <div class="model-header">Gradient Boosting</div>
+                    <div class="result-metric"><label>Risk Level:</label><div class="value">${result.gradient_boosting.label}</div></div>
+                    <div class="result-metric"><label>Probability:</label><div class="value">${result.gradient_boosting.percentage}</div></div>
+                    <div class="result-metric"><label>Confidence:</label><div class="value">${(result.gradient_boosting.probability*100).toFixed(2)}%</div></div>
+                </div>
+                <div class="decision-threshold"><strong>Threshold:</strong> ${(result.threshold*100).toFixed(0)}% (High Risk >= 50%)</div>
+                <div class="chart-container"><canvas id="predictionChart"></canvas></div>
+            </div>
+        `;
+        document.getElementById('credit_result').innerHTML = html;
+        document.getElementById('evaluation_section').style.display = 'block';
+
+        const ctx = document.getElementById('predictionChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Random Forest','Gradient Boosting'],
+                datasets: [{
+                    label: 'Risk Probability (%)',
+                    data: [(result.random_forest.probability*100).toFixed(2), (result.gradient_boosting.probability*100).toFixed(2)],
+                    backgroundColor: ['rgba(54, 162, 235, 0.7)','rgba(255, 99, 132, 0.7)'],
+                    borderColor: ['rgba(54, 162, 235, 1)','rgba(255, 99, 132, 1)'],
+                    borderWidth: 1,
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Probability (%)' } } }
+            }
+        });
+    })
+    .catch(error => {
+        document.getElementById('credit_loading').style.display = 'none';
+        document.getElementById('credit_result').innerHTML = `<div class="result error"><h3>Error</h3><p>${error.message}</p></div>`;
+    });
+}
+</script>
+{% endblock %}

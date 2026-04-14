@@ -1,0 +1,14 @@
+MODEL EVALUATION REPORT
+Generated: 2026-04-13T06:52:24.809435Z
+
+RANDOM FOREST
+• Accuracy: 0.9500
+• Precision: 0.9310
+• Recall: 0.9000
+• F1 Score: 0.9153
+
+GRADIENT BOOSTING
+• Accuracy: 0.8350
+• Precision: 0.7872
+• Recall: 0.6167
+• F1 Score: 0.6916
